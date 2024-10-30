@@ -1,0 +1,163 @@
+"use client"
+
+import { useState, useCallback } from "react"
+import { format } from "date-fns"
+import { Plus, Trash2, Calendar } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+
+type Category = "Future" | "High Priority" | "In Periphery"
+
+interface Todo {
+  id: number
+  text: string
+  completed: boolean
+  category: Category
+  deadline?: Date
+}
+
+export default function TheDoList() {
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [newTodo, setNewTodo] = useState("")
+  const [newCategory, setNewCategory] = useState<Category>("High Priority")
+  const [activeTab, setActiveTab] = useState<Category | "All">("All")
+  const [deadline, setDeadline] = useState<Date | undefined>(undefined)
+
+  const addTodo = useCallback(() => {
+    if (newTodo.trim() !== "") {
+      setTodos(prevTodos => [
+        ...prevTodos,
+        { id: Date.now(), text: newTodo, completed: false, category: newCategory, deadline }
+      ])
+      setNewTodo("")
+      setDeadline(undefined)
+    }
+  }, [newTodo, newCategory, deadline])
+
+  const toggleTodo = useCallback((id: number) => {
+    setTodos(prevTodos => prevTodos.map(todo =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ))
+  }, [])
+
+  const removeTodo = useCallback((id: number) => {
+    setTodos(prevTodos => prevTodos.filter(todo => todo.id !== id))
+  }, [])
+
+  const filteredTodos = activeTab === "All" ? todos : todos.filter(todo => todo.category === activeTab)
+
+  return (
+    <div className="min-h-screen bg-gray-100 py-8">
+      <Card className="w-full max-w-3xl mx-auto bg-white shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-3xl font-bold text-center text-gray-800">The Do List</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 mb-4">
+            <Input
+              type="text"
+              placeholder="Add a new task"
+              value={newTodo}
+              onChange={(e) => setNewTodo(e.target.value)}
+              onKeyPress={(e) => e.key === "Enter" && addTodo()}
+              className="flex-grow"
+            />
+            <Select value={newCategory} onValueChange={(value: Category) => setNewCategory(value)}>
+              <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Future">Future</SelectItem>
+                <SelectItem value="High Priority">High Priority</SelectItem>
+                <SelectItem value="In Periphery">In Periphery</SelectItem>
+              </SelectContent>
+            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-[140px]">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {deadline ? format(deadline, "MMM d") : "Deadline"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <CalendarComponent
+                  mode="single"
+                  selected={deadline}
+                  onSelect={setDeadline}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            <Button onClick={addTodo} className="bg-blue-500 hover:bg-blue-600 text-white">
+              <Plus className="w-4 h-4 mr-2" />
+              Add
+            </Button>
+          </div>
+
+          <Tabs defaultValue="All" className="w-full" onValueChange={(value) => setActiveTab(value as Category | "All")}>
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="All">All</TabsTrigger>
+              <TabsTrigger value="Future">Future</TabsTrigger>
+              <TabsTrigger value="High Priority">High Priority</TabsTrigger>
+              <TabsTrigger value="In Periphery">In Periphery</TabsTrigger>
+            </TabsList>
+            {["All", "Future", "High Priority", "In Periphery"].map((tab) => (
+              <TabsContent key={tab} value={tab} className="mt-4">
+                <TodoList todos={filteredTodos} toggleTodo={toggleTodo} removeTodo={removeTodo} />
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+interface TodoListProps {
+  todos: Todo[]
+  toggleTodo: (id: number) => void
+  removeTodo: (id: number) => void
+}
+
+function TodoList({ todos, toggleTodo, removeTodo }: TodoListProps) {
+  return (
+    <ul className="space-y-2">
+      {todos.map((todo) => (
+        <li key={todo.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id={`todo-${todo.id}`}
+              checked={todo.completed}
+              onCheckedChange={() => toggleTodo(todo.id)}
+            />
+            <label
+              htmlFor={`todo-${todo.id}`}
+              className={`text-sm ${todo.completed ? "line-through text-gray-400" : "text-gray-700"}`}
+            >
+              {todo.text}
+            </label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+              {todo.category}
+            </span>
+            {todo.deadline && (
+              <span className="text-xs px-2 py-1 rounded-full bg-gray-200 text-gray-700">
+                {format(todo.deadline, "MMM d")}
+              </span>
+            )}
+            <Button variant="ghost" size="icon" onClick={() => removeTodo(todo.id)} className="text-gray-500 hover:text-red-500">
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </li>
+      ))}
+    </ul>
+  )
+}
